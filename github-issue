@@ -156,6 +156,45 @@ if __name__ == '__main__':
             continue
 
         is_number = re.search("[0-9]+", args[i])
+        if args[i] == '-h' or args[i] == '--help' or args[i] == 'help':
+            print "github-issue - Tool for interacting with GitHub Issues from the command line"
+            print ""
+            print "Usage: github-issue [options] command [issues]"
+            print ""
+            print "Options:"
+            print " -u,--user    - Your github username"
+            print " -t,--token   - Your personal API token obtained from https://github.com/account/admin"
+            print " -r,--repo, --repository  The github repository you wish to interact with"
+            print ""
+            print "Simple Commands:"
+            print " tags          - List labels used by the project"
+            print " list          - List all the project's open bugs"
+            print " start         - Start working on the listed issue(s), sets a label called 'In Progress'"
+            print " close         - Close the listed issue(s), unsets the 'In Progress' label"
+            print " clone-rhel    - Clone the specified issue(s) to a bugzilla for RHEL 6"
+            print " clone-fedora  - Clone the specified issue(s) to a bugzilla for Fedora 15"
+            print ""
+            print "Contextual Commands:"
+            print " b,bugs        - Label issues with 'Bug', or list existing issues with that label if no issues are specified"
+            print " f,features    - Label issues with 'Feature', or list existing issues with that label if no issues are specified"
+            print " t,tag text    - Apply the specified label to specified issue(s), or list issues with that label otherwise"
+            print "                 May be specified multiple times"
+            print " u,untag text  - Remove the specified label from specified issue(s)"
+            print "                 May be specified multiple times"
+            print ""
+            print "Suggested usage:"
+            print " alias g='github-issue -u beekhof -t your_github_api_token -r ClusterLabs/pacemaker'"
+            print ""
+            print " g                       # List all open issues"
+            print " g bugs                  # List all open Bugs"
+            print " g show 1                # Show details of issue 1"
+            print " g tag 'My Label' 1 3    # Add 'My Label' to issues 1 and 3"
+            print " g tag 'My Label'        # Shows all issues tagged with 'My Label'"
+            print " g untag 'Your Label' 3  # Remove 'My Label' from issue 3"
+            print ""
+            print ""
+            sys.exit(0)
+        
         if args[i] == '-u' or args[i] == '--user':
             skipthis=1
             github_username=args[i+1]
@@ -164,17 +203,17 @@ if __name__ == '__main__':
             skipthis=1
             github_api_token=args[i+1]
 
-        elif args[i] == '-r' or args[i] == '--repo':
+        elif args[i] == '-r' or args[i] == '--repo' or args[i] == '--repository':
             skipthis=1
             github_project=args[i+1]
 
-        elif args[i] == 'b' or args[i] == 'bug' or args[i] == 'ack-bug' or args[i] == 'ack':
+        elif args[i] == 'b' or args[i] == 'bug' or args[i] == 'bugs' or args[i] == 'ack-bug' or args[i] == 'ack':
             tags = []
             tags.append('Bug')
             untags.append('Feature')
             action='tag'
 
-        elif args[i] == 'f' or args[i] == 'feature' or args[i] == 'ack-feature':
+        elif args[i] == 'f' or args[i] == 'feature' or args[i] == 'features' or args[i] == 'ack-feature':
             tags = []
             tags.append('Feature')
             untags.append('Bug')
