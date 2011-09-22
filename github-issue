@@ -182,7 +182,7 @@ if __name__ == '__main__':
             print " u,untag text  - Remove the specified label from specified issue(s)"
             print "                 May be specified multiple times"
             print ""
-            print "Suggested usage:"
+            print "Example usage:"
             print " alias g='github-issue -u beekhof -t your_github_api_token -r ClusterLabs/pacemaker'"
             print ""
             print " g                       # List all open issues"
