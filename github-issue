@@ -90,24 +90,24 @@ def bz_clone(repo, num, product, version, component):
         change='Closed'
         when=git_issue.closed_at
 
-    text += " Filed by: %s at %s (%s: %s)\n" % (git_issue.user, git_issue.created_at, change, when)
+    text += "Filed by: %s at %s (%s: %s)\n" % (git_issue.user, git_issue.created_at, change, when)
 
     if git_issue.labels:
-        text += " Labels: %s\n" % ', '.join(git_issue.labels)
+        text += "Labels: %s\n" % ', '.join(git_issue.labels)
     if git_issue.patch_url:
-        text += " Patch: %s\n" % git_issue.patch_url
+        text += "Patch: %s\n" % git_issue.patch_url
 
     if git_issue.body:
         text += "\n"
         for line in git_issue.body.split('\n'):
-            text += " | %s\n" % line
+            text += "| %s\n" % line
 
     comments = github.issues.comments(repo, num)
     for comment in comments:
         text += "\n"
-        text += " %s at %s\n" % (comment.user, comment.updated_at)
+        text += "%s at %s\n" % (comment.user, comment.updated_at)
         for line in comment.body.split('\n'):
-            text += " > %s\n" % line
+            text += "> %s\n" % line
 
     text = re.sub("\'", "'\\''", text)
     issue_url   = 'https://github.com/%s/issues/%d' % (github_project, num)
@@ -183,7 +183,7 @@ if __name__ == '__main__':
             print "                 May be specified multiple times"
             print ""
             print "Example usage:"
-            print " alias g='github-issue -u beekhof -t your_github_api_token -r ClusterLabs/pacemaker'"
+            print " alias g='github-issue -u your_github_username -t your_github_api_token -r ClusterLabs/pacemaker'"
             print ""
             print " g                       # List all open issues"
             print " g bugs                  # List all open Bugs"
@@ -191,6 +191,9 @@ if __name__ == '__main__':
             print " g tag 'My Label' 1 3    # Add 'My Label' to issues 1 and 3"
             print " g tag 'My Label'        # Shows all issues tagged with 'My Label'"
             print " g untag 'Your Label' 3  # Remove 'My Label' from issue 3"
+            print ""
+            print "Notes:"
+            print "  Requires: http://packages.python.org/github2/"
             print ""
             print ""
             sys.exit(0)
@@ -281,6 +284,10 @@ if __name__ == '__main__':
             elif action == 'clone':
                 bz_clone(github_project, issue, bz_product, bz_version, bz_component)
                 continue
+
+            elif action != 'list':
+                print "Unknown action: %s" % action
+                sys.exit(1)
 
             for tag in tags:
                 github.issues.add_label(github_project, issue, tag)
