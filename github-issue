@@ -1,0 +1,268 @@
+#!/usr/bin/python
+
+
+import sys, re
+from subprocess import Popen,PIPE
+from github2.client import Github
+
+def list_all(github, repo):
+    git_issues = github.issues.list(repo)
+    for git_issue in git_issues:
+	labels = ','.join(git_issue.labels)
+        summary = "%d [%s] %s" % (git_issue.number, labels, git_issue.title)
+        print " * %-90s Created: %s Modified: %s" % (summary, git_issue.created_at, git_issue.updated_at)
+
+def list_tag(github, repo, tags):
+    for tag in tags: 
+        git_issues = github.issues.list_by_label(repo, tag)
+        print "%s:" % tag
+        for git_issue in git_issues:
+            summary = "%d %s" % (git_issue.number, git_issue.title)
+            print " * %-90s Created: %s Modified: %s" % (summary, git_issue.created_at, git_issue.updated_at)
+        print " Total: %d" % (len(git_issues))
+        print ""
+
+def list_tags(github, repo, detail=1):
+    tags = github.issues.list_labels(repo)
+    for tag in tags: 
+        if detail:
+            git_issues = github.issues.list_by_label(repo, tag)
+            print " %15s %d" % (tag, len(git_issues))
+        else:
+            print " %s" % (tag)
+    print ""
+
+def add_comment(github, repo, num, text):
+    git_issue = github.issues.comment(repo, num, text)
+
+def issue_detail(github, repo, num):
+    git_issue = github.issues.show(repo, num)
+    print ""
+    
+    if git_issue.labels:
+        labels = ', '.join(git_issue.labels)
+        labels = "%s, %s" % (git_issue.state, labels)
+    else:
+        labels = git_issue.state
+    summary = "%d [%s] %s" % (git_issue.number, labels, git_issue.title)
+    print " * %-90s" % (summary)
+
+    change='Modified'
+    when=git_issue.updated_at
+
+    if git_issue.state == "closed":
+        change='Closed'
+        when=git_issue.closed_at
+
+    print "   Filed by: %s at %s (%s: %s)" % (git_issue.user, git_issue.created_at, change, when)
+
+    if git_issue.diff_url:
+        print "   Diff: %s" % git_issue.diff_url
+    if git_issue.patch_url:
+        print "   Patch: %s" % git_issue.patch_url
+    if git_issue.diff_url:
+        print "   Pull: %s" % git_issue.pull_request_url
+
+    if git_issue.body:
+        print ""
+        for line in git_issue.body.split('\n'):
+            print "   | %s" % line
+
+    comments = github.issues.comments(repo, num)
+    for comment in comments:
+        print ""
+        print "   %s at %s" % (comment.user, comment.updated_at)
+        for line in comment.body.split('\n'):
+            print "   > %s" % line
+
+    print ""
+
+
+def bz_clone(repo, num, product, version, component):
+
+    git_issue = github.issues.show(repo, num)
+    text = "\n"
+    
+    change='Modified'
+    when=git_issue.updated_at
+
+    if git_issue.state == "closed":
+        change='Closed'
+        when=git_issue.closed_at
+
+    text += " Filed by: %s at %s (%s: %s)\n" % (git_issue.user, git_issue.created_at, change, when)
+
+    if git_issue.labels:
+        text += " Labels: %s\n" % ', '.join(git_issue.labels)
+    if git_issue.patch_url:
+        text += " Patch: %s\n" % git_issue.patch_url
+
+    if git_issue.body:
+        text += "\n"
+        for line in git_issue.body.split('\n'):
+            text += " | %s\n" % line
+
+    comments = github.issues.comments(repo, num)
+    for comment in comments:
+        text += "\n"
+        text += " %s at %s\n" % (comment.user, comment.updated_at)
+        for line in comment.body.split('\n'):
+            text += " > %s\n" % line
+
+    text = re.sub("\'", "'\\''", text)
+    issue_url   = 'https://github.com/%s/issues/%d' % (github_project, num)
+    cmd = "bugzilla new --product='%s' --version='%s' --component='%s' --url='%s' --summary='%s' --comment='%s'" % (product, version, component, issue_url, git_issue.title, text)
+
+    print cmd
+    proc = Popen(cmd, stdout = PIPE, stderr = PIPE, close_fds = True, shell = True)
+
+    if proc.stdout:
+        lines = proc.stdout.readlines()
+        proc.stdout.close()
+        for line in lines:
+            print line.strip()
+
+    if proc.stderr:
+        lines = proc.stderr.readlines()
+        proc.stderr.close()
+        for line in lines:
+            print "Err: %s" % line.strip()
+
+    rc = proc.wait()
+
+
+if __name__ == '__main__':
+
+# api settings for github
+    github_api_token = None
+    github_username = None
+    github_project = None
+
+    bz_product = None
+    bz_version = None
+    bz_component = None
+
+    action='list'
+    patch=None
+    tags=[]
+    untags=[]
+    issues=[]
+
+    skipthis=None
+    args=sys.argv[1:]
+    for i in range(0, len(args)):
+        if skipthis:
+            skipthis=None
+            continue
+
+        is_number = re.search("[0-9]+", args[i])
+        if args[i] == '-u' or args[i] == '--user':
+            skipthis=1
+            github_username=args[i+1]
+
+        elif args[i] == '-t' or args[i] == '--token':
+            skipthis=1
+            github_api_token=args[i+1]
+
+        elif args[i] == '-r' or args[i] == '--repo':
+            skipthis=1
+            github_project=args[i+1]
+
+        elif args[i] == 'b' or args[i] == 'bug' or args[i] == 'ack-bug' or args[i] == 'ack':
+            tags = []
+            tags.append('Bug')
+            untags.append('Feature')
+            action='tag'
+
+        elif args[i] == 'f' or args[i] == 'feature' or args[i] == 'ack-feature':
+            tags = []
+            tags.append('Feature')
+            untags.append('Bug')
+            action='tag'
+
+        elif args[i] == 'start':
+            tags.append('In Progress')
+
+        elif args[i] == 'close':
+            untags.append('In Progress')
+            action='close'
+
+        elif args[i] == 't' or args[i] == 'tag':
+            tags.append(args[i+1])
+            skipthis=1
+
+        elif args[i] == 'u' or args[i] == 'untag':
+            untags.append(args[i+1])
+            skipthis=1
+
+        elif args[i] == 'clone-fedora':
+            action='clone'
+            bz_product = 'Fedora'
+            bz_version = '15'
+            bz_component = 'pacemaker'
+
+        elif args[i] == 'clone-rhel':
+            action='clone'
+            bz_product = 'Red Hat Enterprise Linux 6'
+            bz_version = '6.2'
+            bz_component = 'pacemaker'
+
+        elif is_number:
+            issues.append(int(args[i]))
+
+            # Target shortcuts
+        elif args[i] == 'p' or args[i] == 'pcmk' or args[i] == 'pacemaker':
+            github_project='ClusterLabs/pacemaker'
+
+        else:
+            action=args[i]
+
+    if not(github_project):
+        print "You must specify a GitHub project to operate on"
+        sys.exit(1)
+
+    tags = set(tags)
+    untags = set(untags)
+    issues = set(issues)
+
+    github = Github(username=github_username, api_token=github_api_token)
+    
+    if len(issues):
+        for issue in issues:
+            if action == 'close':
+                github.issues.close(github_project, issue)
+
+            elif action == 'reopen':
+                github.issues.reopen(github_project, issue)
+
+            elif action == 'show':
+                issue_detail(github, github_project, issue)
+                continue
+            
+            elif action == 'clone':
+                bz_clone(github_project, issue, bz_product, bz_version, bz_component)
+                continue
+
+            for tag in tags:
+                github.issues.add_label(github_project, issue, tag)
+                if tag == "Bug" or tag == "Feature":
+                    github.issues.add_label(github_project, issue, 'Accepted')
+                
+            for tag in untags:
+                try:
+                    github.issues.remove_label(github_project, issue, tag)
+                except:
+                    pass
+        
+                #github.issues.comment(github_project, num, """Some comment here""")
+
+    elif len(tags):
+        list_tag(github, github_project, tags)
+
+    elif action == 'list':
+        list_all(github, github_project)
+
+    elif action == 'tags':
+        list_tags(github, github_project)
+    else:
+        print "Unknown action: %s" % action
